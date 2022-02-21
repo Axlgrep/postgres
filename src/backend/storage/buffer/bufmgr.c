@@ -102,7 +102,10 @@ typedef struct CkptTsStatus
 	/* already processed pages in this tablespace */
 	int			num_scanned;
 
-	/* current offset in CkptBufferIds for this tablespace */
+	/* current offset in CkptBufferIds for this tablespace
+	 * 当前table space在CkptBufferIds数组中的起始位置(由于CkptBufferIds
+     * 数组中的元素都是有序的, 可以结合num_to_scan计算出当前table space
+     * 需要刷盘的page) */
 	int			index;
 } CkptTsStatus;
 
@@ -1844,9 +1847,11 @@ BufferSync(int flags)
 		/*
 		 * Header spinlock is enough to examine BM_DIRTY, see comment in
 		 * SyncOneBuffer.
+         * 这里是先获取当前BufferDesc的锁, 然后才能做更多其他的操作
 		 */
 		buf_state = LockBufHdr(bufHdr);
 
+        /* 如果当前Page确实是DIRTY的状态, 将其设置成CHECKPOINT_NEEDED状态 */
 		if ((buf_state & mask) == mask)
 		{
 			CkptSortItem *item;
@@ -1868,6 +1873,7 @@ BufferSync(int flags)
 			ProcessProcSignalBarrier();
 	}
 
+    /* 如果没有dirty page需要刷, 直接返回 */
 	if (num_to_scan == 0)
 		return;					/* nothing to do */
 
@@ -1881,6 +1887,9 @@ BufferSync(int flags)
 	 * writes between tablespaces. Without balancing writes we'd potentially
 	 * end up writing to the tablespaces one-by-one; possibly overloading the
 	 * underlying system.
+     *
+     * 这里实际上是一个优化, 让需要刷脏的page按序排列, 这样刷盘时可以尽可
+     * 能减少随机IO(相邻的Page可能可以做Batch?)
 	 */
 	qsort(CkptBufferIds, num_to_scan, sizeof(CkptSortItem),
 		  ckpt_buforder_comparator);
@@ -1915,6 +1924,9 @@ BufferSync(int flags)
 			 */
 			sz = sizeof(CkptTsStatus) * num_spaces;
 
+            /* 如果per_ts_stat为NULL, 说明当前是第一个table space
+             * 需要分配全新的ChptTsStatus空间, 否则表示上一个table space已经结束
+             * 遇到了一个新的table space, 需要扩空间 */
 			if (per_ts_stat == NULL)
 				per_ts_stat = (CkptTsStatus *) palloc(sz);
 			else

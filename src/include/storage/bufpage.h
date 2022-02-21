@@ -157,10 +157,12 @@ typedef struct PageHeaderData
 	uint16		pd_flags;		/* flag bits, see below */
 	LocationIndex pd_lower;		/* offset to start of free space */
 	LocationIndex pd_upper;		/* offset to end of free space */
-	LocationIndex pd_special;	/* offset to start of special space */
+	LocationIndex pd_special;	/* offset to start of special space, 实际上这部分special size在page的末尾 */
 	uint16		pd_pagesize_version;
 	TransactionId pd_prune_xid; /* oldest prunable XID, or zero if none */
-	ItemIdData	pd_linp[FLEXIBLE_ARRAY_MEMBER]; /* line pointer array */
+	ItemIdData	pd_linp[FLEXIBLE_ARRAY_MEMBER]; /* line pointer array,
+                                                   这里可以理解为是一个变长的数组,
+                                                   在初始化一个新Page的时候, 实际上pd_lower指向pd_linp的起始位置*/
 } PageHeaderData;
 
 typedef PageHeaderData *PageHeader;

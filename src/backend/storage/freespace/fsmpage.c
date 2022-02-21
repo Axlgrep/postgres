@@ -177,6 +177,9 @@ restart:
 	 * Start search using fp_next_slot.  It's just a hint, so check that it's
 	 * sane.  (This also handles wrapping around when the prior call returned
 	 * the last slot on the page.)
+     *
+     * 这里个人理解是一个优化项,
+     * 避免每次都从相同的叶子节点递归向上查找符合要求的叶子节点
 	 */
 	target = fsmpage->fp_next_slot;
 	if (target < 0 || target >= LeafNodesPerPage)
@@ -233,6 +236,9 @@ restart:
 		/*
 		 * Move to the right, wrapping around on same level if necessary, then
 		 * climb up.
+         *  
+         * 这里实际上是一个从某一个叶子节点递归向上查找,
+         * 子树满足minvalue的非叶子节点的流程
 		 */
 		nodeno = parentof(rightneighbor(nodeno));
 	}
@@ -241,6 +247,9 @@ restart:
 	 * We're now at a node with enough free space, somewhere in the middle of
 	 * the tree. Descend to the bottom, following a path with enough free
 	 * space, preferring to move left if there's a choice.
+     *
+     * 如果当前的nodeno指向的是一个非叶子节点, 那么我们需要递归向下查找符合要
+     * 求的叶子节点
 	 */
 	while (nodeno < NonLeafNodesPerPage)
 	{
@@ -258,6 +267,9 @@ restart:
 		{
 			nodeno = childnodeno;
 		}
+        /* 正常情况下parent node满足了minvalue条件, 那么leftchild或者rightchild
+         * 一定有一个是符合要求的, 走到了else的逻辑, 说明数据已经错乱了, 这时候
+         * 我们需要进行纠错处理 */
 		else
 		{
 			/*

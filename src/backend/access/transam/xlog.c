@@ -548,6 +548,8 @@ typedef struct XLogCtlInsert
 	 * previously inserted (or rather, reserved) record - it is copied to the
 	 * prev-link of the next record. These are stored as "usable byte
 	 * positions" rather than XLogRecPtrs (see XLogBytePosToRecPtr()).
+     *
+     * CurrBytesPos实际上是当前WAL的末尾, 可以认为是下一条redo的写入位置
 	 */
 	uint64		CurrBytePos;
 	uint64		PrevBytePos;
@@ -8750,6 +8752,8 @@ CreateCheckPoint(int flags)
 	 * Note: because it is possible for log_checkpoints to change while a
 	 * checkpoint proceeds, we always accumulate stats, even if
 	 * log_checkpoints is currently off.
+     *
+     * 重置CheckPoint的一些统计信息
 	 */
 	MemSet(&CheckpointStats, 0, sizeof(CheckpointStats));
 	CheckpointStats.ckpt_start_t = GetCurrentTimestamp();
@@ -8798,6 +8802,9 @@ CreateCheckPoint(int flags)
 	/*
 	 * We must block concurrent insertions while examining insert state to
 	 * determine the checkpoint REDO pointer.
+     *
+     * 确认此次CheckPoint的redo pointer的位置, 目标是在redo pointer之前的数据
+     * 都已经落冷, 并且WAL都可以清理
 	 */
 	WALInsertLockAcquireExclusive();
 	curInsert = XLogBytePosToRecPtr(Insert->CurrBytePos);

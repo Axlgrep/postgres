@@ -266,9 +266,9 @@ typedef struct xl_end_of_recovery
  */
 typedef struct XLogRecData
 {
-	struct XLogRecData *next;	/* next struct in chain, or NULL */
-	char	   *data;			/* start of rmgr data to include */
-	uint32		len;			/* length of rmgr data to include */
+	struct XLogRecData *next;	/* next struct in chain, or NULL, 指向下一条待写入日志的信息 */
+	char	   *data;			/* start of rmgr data to include, 待写入日志的buffer起始位置 */
+	uint32		len;			/* length of rmgr data to include, 待写入日志的长度 */
 } XLogRecData;
 
 /*
